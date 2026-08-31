@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
+  <title>Project JohAR &mdash; AR Fire Safety Training</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&family=Exo+2:wght@600;800&display=swap" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Exo 2','Noto Sans Devanagari',sans-serif;overflow:hidden;background:#000}
+    .screen{position:fixed;inset:0;z-index:10;transition:opacity .4s;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .screen.off{opacity:0;pointer-events:none}
+    canvas{position:absolute;inset:0;width:100%;height:100%}
+    /* ── START ── */
+    #s0{background:linear-gradient(160deg,#080605,#1a0a00,#000);gap:18px;padding:28px;text-align:center}
+    .logo{font-size:54px;font-weight:800;letter-spacing:2px;background:linear-gradient(90deg,#FFD700,#FF6B35);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .sub{font-size:9px;color:rgba(255,180,0,.6);letter-spacing:2px;text-transform:uppercase}
+    .tagline{font-size:15px;color:rgba(255,255,255,.7);line-height:1.7}
+    .badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+    .badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,180,0,.3);border-radius:20px;padding:5px 12px;font-size:10px;color:rgba(255,255,255,.7)}
+    #s0-btn{margin-top:10px;padding:18px 44px;font-size:18px;font-weight:800;background:linear-gradient(135deg,#FFD700,#FF6B35);color:#000;border:none;border-radius:50px;cursor:pointer;animation:pulse-btn 1.8s ease-in-out infinite}
+    @keyframes pulse-btn{0%{box-shadow:0 0 0 0 rgba(255,165,0,.6)}70%{box-shadow:0 0 0 20px rgba(255,165,0,0)}100%{box-shadow:0 0 0 0 rgba(255,165,0,0)}}
+    /* ── DETECT ── */
+    #s1{display:block}
+    #cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+    #dc{z-index:1}
+    /* ── TRAIN ── */
+    #s2{display:block}
+    #tc{z-index:1}
+    #sc{z-index:5;pointer-events:none}
+    /* ── SHARED HUD ── */
+    .banner{position:absolute;top:0;left:0;right:0;z-index:100;padding:11px 16px;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#c0392b,#e74c3c,#c0392b);animation:pr 1.2s ease-in-out infinite alternate;border-bottom:3px solid #ff6b6b}
+    @keyframes pr{from{box-shadow:0 4px 20px rgba(231,76,60,.7)}to{box-shadow:0 4px 40px rgba(231,76,60,1)}}
+    .banner.safe{background:linear-gradient(135deg,#1e8449,#27ae60,#1e8449);border-color:#58d68d;animation:none}
+    .bi{font-size:26px}.bh{font-family:'Noto Sans Devanagari',sans-serif;font-size:14px;font-weight:700;color:#fff}.be{font-size:9px;color:rgba(255,255,255,.85);letter-spacing:1.5px;text-transform:uppercase}
+    .brand{position:absolute;top:74px;right:12px;z-index:100;background:rgba(0,0,0,.65);border:1px solid rgba(255,180,0,.5);border-radius:10px;padding:6px 11px;text-align:center;backdrop-filter:blur(6px)}
+    .bn{font-size:16px;font-weight:800;background:linear-gradient(90deg,#FFD700,#FF6B35);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .bs{font-size:7px;color:rgba(255,255,255,.5);letter-spacing:1.5px;text-transform:uppercase}
+    .instr{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;background:rgba(0,0,0,.82);border:1.5px solid rgba(255,215,0,.4);border-radius:18px;padding:11px 18px;text-align:center;color:#fff;width:92%;max-width:420px;backdrop-filter:blur(8px)}
+    .slbl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#FFD700;margin-bottom:3px}
+    .stxt{font-size:14px;font-weight:600;color:#fff;line-height:1.5}
+    .shn{font-family:'Noto Sans Devanagari',sans-serif;font-size:11px;color:rgba(255,255,255,.7);margin-top:3px;display:block}
+    #zbadge{position:absolute;bottom:108px;left:50%;transform:translateX(-50%);z-index:100;background:rgba(180,0,0,.8);border-radius:20px;padding:5px 16px;font-size:11px;font-weight:700;color:#fff;backdrop-filter:blur(4px)}
+    /* ── TRAIN HUD ── */
+    #pass-hud{position:absolute;top:74px;left:12px;z-index:100;background:rgba(0,0,0,.7);border:1px solid rgba(255,180,0,.4);border-radius:12px;padding:8px 14px;backdrop-filter:blur(6px)}
+    .plbl{font-size:8px;color:rgba(255,255,255,.5);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px}
+    .pdots{display:flex;gap:6px}
+    .pdot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.2);transition:background .4s}
+    .pdot.done{background:#00FF88}.pdot.active{background:#FFD700;animation:pdp .8s infinite}
+    @keyframes pdp{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}
+    #timer-hud{position:absolute;top:74px;left:50%;transform:translateX(-50%);z-index:100;background:rgba(0,0,0,.7);border:1px solid rgba(255,80,0,.5);border-radius:12px;padding:6px 16px;text-align:center;backdrop-filter:blur(6px);display:none}
+    .tlbl{font-size:8px;color:rgba(255,255,255,.5);letter-spacing:2px;text-transform:uppercase}
+    .tval{font-size:24px;font-weight:800;color:#FF6B35}
+    /* ── EXTINGUISHER ── */
+    #ext-wrap{position:absolute;right:10px;bottom:118px;z-index:200;width:76px;display:none}
+    /* ── INTERACTIVE HIGHLIGHTS ── */
+    .hi{position:absolute;z-index:210;border-radius:50%;border:3px solid #FFD700;background:rgba(255,215,0,.2);animation:ping .9s ease-in-out infinite;cursor:pointer;display:none;align-items:center;justify-content:center;font-size:18px}
+    @keyframes ping{0%{transform:translate(-50%,-50%) scale(1);opacity:1}50%{transform:translate(-50%,-50%) scale(1.5);opacity:.6}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+    #h-pin{width:34px;height:34px}
+    #h-handle{width:58px;height:26px;border-radius:10px;display:none}
+    #h-aim{width:90px;height:90px;border-color:rgba(255,80,0,.9);background:rgba(255,80,0,.12);display:none;font-size:28px}
+    .sweep-zone{position:absolute;bottom:152px;z-index:200;width:90px;height:76px;border:3px dashed rgba(100,200,255,.9);border-radius:14px;background:rgba(100,200,255,.08);display:none;align-items:center;justify-content:center;flex-direction:column;gap:4px;cursor:pointer;animation:ping2 .9s infinite}
+    @keyframes ping2{0%,100%{border-color:rgba(100,200,255,.9)}50%{border-color:rgba(100,200,255,.4)}}
+    #sw-l{left:16px} #sw-r{right:16px}
+    .sweep-zone span{font-size:22px}.sweep-zone small{color:rgba(200,230,255,.9);font-size:9px;font-weight:700;text-align:center}
+    
+    /* ── DRAG/SWIPE GESTURE UI ── */
+    #drag-pin { position:absolute; z-index:220; width:60px; height:60px; display:none; align-items:center; justify-content:center; touch-action:none; }
+    .drag-hint { position:absolute; font-size:10px; color:#FFD700; font-weight:bold; white-space:nowrap; animation:bounceX 1s infinite; pointer-events:none; }
+    @keyframes bounceX { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-10px)} }
+    
+    #drag-nozzle { position:absolute; z-index:220; width:50px; height:50px; background:#222; border:2px solid #555; border-radius:8px; display:none; touch-action:none; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
+    #drag-nozzle::after { content:''; position:absolute; right:-6px; top:50%; transform:translateY(-50%); width:12px; height:20px; background:#111; border-radius:2px; }
+    .drag-line { position:absolute; z-index:215; background:#222; transform-origin:0 50%; display:none; pointer-events:none; }
+    
+    #squeeze-zone { position:absolute; z-index:220; display:none; touch-action:none; border-radius:10px; background:rgba(255,255,255,0.1); border:2px solid rgba(255,215,0,0.5); animation:pulseBorder 1s infinite; }
+    @keyframes pulseBorder { 0%,100%{border-color:rgba(255,215,0,0.3)} 50%{border-color:rgba(255,215,0,0.9)} }
+    
+    .sweep-hint { position:absolute; bottom:250px; left:50%; transform:translateX(-50%); color:#00FF88; font-size:24px; font-weight:bold; display:none; z-index:200; pointer-events:none; text-shadow:0 2px 10px #000; }
+
+    /* ── BACK BTN ── */
+    #back-btn{position:absolute;top:82px;left:12px;z-index:999;width:34px;height:34px;background:rgba(0,0,0,.65);border:1px solid rgba(255,180,0,.5);border-radius:50%;color:#FFD700;font-size:16px;display:none;align-items:center;justify-content:center;cursor:pointer}
+    /* ── VICTORY (training) ── */
+    #vic{position:absolute;inset:0;z-index:500;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center}
+    .vbox{background:linear-gradient(135deg,#0d3320,#155a30);border:2px solid #58d68d;border-radius:24px;padding:28px 24px;text-align:center;max-width:310px;width:90%}
+    .vicon{font-size:52px}.vtitle{font-size:20px;font-weight:800;color:#58d68d;margin:8px 0}
+    .vhindi{font-family:'Noto Sans Devanagari',sans-serif;font-size:17px;color:#FFD700}
+    .vmsg{font-size:12px;color:rgba(255,255,255,.8);margin-top:8px;line-height:1.6}
+    .vscore{font-size:30px;font-weight:800;color:#FFD700;margin-top:6px}
+    #vic-btn{margin-top:14px;padding:13px 32px;font-size:14px;font-weight:800;background:linear-gradient(135deg,#FFD700,#FF6B35);color:#000;border:none;border-radius:50px;cursor:pointer}
+    /* ── CERTIFICATE ── */
+    #s3{background:linear-gradient(160deg,#050a0a,#00141a,#000);gap:14px;padding:24px;text-align:center}
+    .cert-box{background:linear-gradient(135deg,#0a1f0a,#0d2e1a);border:2px solid #58d68d;border-radius:20px;padding:22px 18px;width:92%;max-width:340px}
+    .cert-title{font-size:13px;color:#58d68d;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px}
+    .cert-name{font-size:24px;font-weight:800;color:#FFD700;margin:6px 0}
+    .cert-hn{font-family:'Noto Sans Devanagari',sans-serif;font-size:13px;color:rgba(255,255,255,.7);margin-bottom:10px}
+    .cert-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:12px}
+    .cert-row:last-child{border:none}
+    .cert-key{color:rgba(255,255,255,.5)}.cert-val{color:#FFD700;font-weight:700}
+    .cert-pass{font-size:20px;font-weight:800;color:#00FF88;margin-top:8px;letter-spacing:2px}
+    #cert-btn{margin-top:14px;padding:14px 36px;font-size:15px;font-weight:800;background:linear-gradient(135deg,#FFD700,#FF6B35);color:#000;border:none;border-radius:50px;cursor:pointer}
+    /* ── RIPPLE ── */
+    .rip{position:fixed;border-radius:50%;pointer-events:none;z-index:9999;background:rgba(255,215,0,.45);transform:translate(-50%,-50%);animation:ra .5s ease-out forwards}
+    @keyframes ra{0%{width:16px;height:16px;opacity:.9}100%{width:90px;height:90px;opacity:0}}
+  </style>
+</head>
+<body>
+
+<!-- ══ SCREEN 0: START ════════════════════════════════════════════ -->
+<div class="screen" id="s0">
+  <div class="logo">JohAR</div>
+  <div class="sub">SIH 2026 &nbsp;|&nbsp; PS 26041</div>
+  <div class="tagline">&#x26A0;&#xFE0F; &#x905;&#x917;&#x94D;&#x928;&#x93F; &#x938;&#x941;&#x930;&#x915;&#x94D;&#x937;&#x93E; &#x92A;&#x94D;&#x930;&#x936;&#x93F;&#x915;&#x94D;&#x937;&#x923;<br/>Jharkhand Mines AR Safety Training</div>
+  <div class="badges">
+    <span class="badge">&#x1F4F7; Live Camera</span>
+    <span class="badge">&#x1F525; 3 Fire Zones</span>
+    <span class="badge">&#x1F9EF; PASS Method</span>
+    <span class="badge">&#x23F1; 30s Challenge</span>
+  </div>
+  <button id="s0-btn">&#x1F4F7; START AR TRAINING</button>
+</div>
+
+<!-- ══ SCREEN 1: DETECT ═══════════════════════════════════════════ -->
+<div class="screen off" id="s1">
+  <video id="cam-video" autoplay playsinline muted></video>
+  <canvas id="dc"></canvas>
+  <div class="banner" id="d-banner">
+    <span class="bi">&#x1F525;</span>
+    <div><div class="bh">&#x26A0;&#xFE0F; &#x916;&#x924;&#x930;&#x93E;: &#x906;&#x917; &#x932;&#x917;&#x940; &#x939;&#x948;!</div><div class="be">FIRE HAZARD DETECTED &mdash; ZONE 4</div></div>
+  </div>
+  <div class="brand"><div class="bn">JohAR</div><div class="bs">SIH 2026 | PS 26041</div></div>
+  <div id="zbadge">&#x1F525; 3 Fire Zones Active</div>
+  <div class="instr" id="d-instr">
+    <div class="slbl">Tap a fire zone to start training</div>
+    <div class="stxt">Find &amp; tap a <strong style="color:#FF4500;">&#x1F534; pulsing red zone</strong> to open extinguisher training!<span class="shn">&#x915;&#x93F;&#x938;&#x940; &#x916;&#x924;&#x930;&#x947; &#x915;&#x940; &#x91C;&#x917;&#x939; &#x92A;&#x930; &#x91F;&#x948;&#x92A; &#x915;&#x930;&#x947;&#x902;</span></div>
+  </div>
+</div>
+
+<!-- ══ SCREEN 2: TRAINING ═════════════════════════════════════════ -->
+<div class="screen off" id="s2">
+  <video id="cam-train" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0"></video>
+  <canvas id="tc"></canvas>
+  <canvas id="sc"></canvas>
+
+  <!-- Extinguisher SVG -->
+  <div id="ext-wrap">
+    <svg id="ext-svg" viewBox="0 0 80 210" style="width:100%;filter:drop-shadow(0 4px 20px rgba(0,0,0,.9))" xmlns="http://www.w3.org/2000/svg">
+      <rect x="22" y="65" width="36" height="125" rx="18" fill="#CC0000"/>
+      <rect x="24" y="67" width="12" height="121" rx="7" fill="rgba(255,255,255,.15)"/>
+      <rect x="28" y="40" width="24" height="32" rx="8" fill="#AA0000"/>
+      <circle cx="40" cy="48" r="11" fill="#1a1a1a" stroke="#777" stroke-width="2"/>
+      <circle cx="40" cy="48" r="7" fill="#111"/>
+      <line x1="40" y1="48" x2="45" y2="43" stroke="#00FF88" stroke-width="2" stroke-linecap="round"/>
+      <rect x="16" y="28" width="48" height="14" rx="6" fill="#555"/>
+      <rect x="17" y="29" width="20" height="12" rx="5" fill="#444"/>
+      <g id="svg-pin" style="transition: transform 0.3s, opacity 0.3s">
+        <circle cx="16" cy="35" r="6" fill="#FFD700" stroke="#000" stroke-width="1.5"/>
+        <line x1="10" y1="35" x2="4" y2="27" stroke="#FFD700" stroke-width="2.5"/>
+        <circle cx="4" cy="27" r="3.5" fill="none" stroke="#FFD700" stroke-width="2"/>
+      </g>
+      <rect x="28" y="12" width="32" height="20" rx="6" fill="#444"/>
+      <rect x="30" y="14" width="12" height="16" rx="5" fill="#333"/>
+      <path d="M22 130 Q6 138 8 168 Q10 182 28 188" fill="none" stroke="#222" stroke-width="9" stroke-linecap="round"/>
+      <path d="M22 130 Q6 138 8 168 Q10 182 28 188" fill="none" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+      <ellipse cx="28" cy="190" rx="9" ry="5" fill="#111"/>
+      <rect x="21" y="185" width="14" height="9" rx="3" fill="#222"/>
+      <rect x="27" y="96" width="26" height="44" rx="4" fill="white"/>
+      <text x="40" y="111" text-anchor="middle" font-size="6" font-weight="bold" fill="#CC0000">ABC</text>
+      <text x="40" y="121" text-anchor="middle" font-size="5" fill="#CC0000">FIRE</text>
+      <text x="40" y="130" text-anchor="middle" font-size="5" fill="#CC0000">EXT.</text>
+      <rect x="26" y="163" width="28" height="7" rx="3" fill="#FFD700"/>
+    </svg>
+  </div>
+
+  <!-- Interaction highlights -->
+  <!-- Gesture Elements -->
+  <div id="drag-pin">
+    <svg viewBox="0 0 30 30" width="30" height="30"><circle cx="20" cy="15" r="8" fill="none" stroke="#FFD700" stroke-width="3"/><line x1="12" y1="15" x2="2" y2="15" stroke="#FFD700" stroke-width="4" stroke-linecap="round"/></svg>
+    <div class="drag-hint" style="left:-40px;">&#x2B05; PULL</div>
+  </div>
+  
+  <div class="drag-line" id="hose-line"></div>
+  <div id="drag-nozzle">
+    <span style="font-size:20px;">&#x1F52B;</span>
+    <div class="drag-hint" id="nozzle-hint" style="top:-25px; left:50%; transform:translateX(-50%); animation:bounceY 1s infinite;">&#x2B07; DRAG TO FIRE</div>
+  </div>
+  
+  <div id="squeeze-zone">
+    <div class="drag-hint" style="top:-25px; left:50%; transform:translateX(-50%);">PRESS & HOLD</div>
+  </div>
+  
+  <div class="sweep-hint" id="sweep-msg">&#x2194;&#xFE0F; SWIPE LEFT & RIGHT TO SWEEP!</div>
+
+  <div class="hi" id="h-pin"></div>
+  <div class="hi" id="h-handle" style="border-radius:10px;width:58px;height:26px;font-size:14px"></div>
+  <div class="hi" id="h-aim" style="font-size:28px"></div>
+  <div class="sweep-zone" id="sw-l" style="left:16px"><span>&#x2B05;</span><small>SWEEP LEFT<br/>&#x092C;&#x093E;&#x0908;&#x0902;</small></div>
+  <div class="sweep-zone" id="sw-r" style="right:16px"><span>&#x27A1;</span><small>SWEEP RIGHT<br/>&#x0926;&#x093E;&#x090F;&#x0902;</small></div>
+
+  <!-- HUDs -->
+  <div class="banner" id="t-banner">
+    <span class="bi">&#x1F525;</span>
+    <div><div class="bh" id="t-bh">&#x920;&#x902;&#x921;&#x947; &#x930;&#x939;&#x947;&#x902; &#x2014; &#x938;&#x940;&#x916;&#x947;&#x902; &#x906;&#x917; &#x915;&#x948;&#x938;&#x947; &#x92C;&#x941;&#x091D;&#x93E;&#x090F;&#x902;</div><div class="be" id="t-be">TRAINING MODE &mdash; FOLLOW THE STEPS</div></div>
+  </div>
+  <div class="brand"><div class="bn">JohAR</div><div class="bs">Training Mode</div></div>
+  <div id="pass-hud">
+    <div class="plbl">PASS Method</div>
+    <div class="pdots">
+      <div class="pdot active" id="pd0" title="Pull"></div>
+      <div class="pdot" id="pd1" title="Aim"></div>
+      <div class="pdot" id="pd2" title="Squeeze"></div>
+      <div class="pdot" id="pd3" title="Sweep"></div>
+    </div>
+  </div>
+  <div id="timer-hud"><div class="tlbl">TIME</div><div class="tval" id="t-tval">30</div></div>
+  <div class="instr" id="t-instr">
+    <div class="slbl" id="t-slbl">Step 1 of 4 &mdash; P: PULL</div>
+    <div class="stxt" id="t-stxt">Pull the <strong style="color:#FFD700;">&#x1F512; safety pin</strong> from the extinguisher handle<span class="shn" id="t-shn">&#x938;&#x941;&#x930;&#x915;&#x94D;&#x937;&#x93E; &#x92A;&#x93F;&#x928; &#x916;&#x940;&#x902;&#x91A;&#x947;&#x902; &mdash; &#x905;&#x917;&#x94D;&#x928;&#x93F;&#x936;&#x93E;&#x92E;&#x915; &#x905;&#x928;&#x932;&#x949;&#x915; &#x915;&#x930;&#x947;&#x902;</span></div>
+  </div>
+  <div id="back-btn" onclick="goBack()">&#x2190;</div>
+
+  <!-- Victory overlay -->
+  <div id="vic">
+    <div class="vbox">
+      <div class="vicon">&#x1F9EF;</div>
+      <div class="vtitle">Fire Extinguished!</div>
+      <div class="vhindi">&#x906;&#x917; &#x92C;&#x941;&#x091D; &#x917;&#x908;! &#x936;&#x93E;&#x92C;&#x93E;&#x936;!</div>
+      <div class="vmsg">You used the PASS method correctly.<br/><strong>PASS &#x935;&#x93F;&#x927;&#x93F; &#x938;&#x939;&#x940; &#x924;&#x930;&#x940;&#x915;&#x947; &#x938;&#x947; &#x909;&#x92A;&#x92F;&#x94B;&#x917; &#x915;&#x940;&#x964;</strong></div>
+      <div class="vscore" id="vic-score">+500 pts</div>
+      <button id="vic-btn">&#x27A1;&#xFE0F; Next Zone</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCREEN 3: CERTIFICATE ══════════════════════════════════════ -->
+<div class="screen off" id="s3">
+  <div class="logo" style="font-size:42px">&#x1F3C6; JohAR</div>
+  <div class="sub">TRAINING COMPLETE</div>
+  <div class="cert-box" id="cert-box">
+    <div class="cert-title">&#x2705; Certificate of Completion</div>
+    <div class="cert-name">&#x1F9EF; Fire Safety Training</div>
+    <div class="cert-hn">&#x905;&#x917;&#x94D;&#x928;&#x93F; &#x938;&#x941;&#x930;&#x915;&#x94D;&#x937;&#x93E; &#x92A;&#x94D;&#x930;&#x936;&#x93F;&#x915;&#x94D;&#x937;&#x923; &#x92A;&#x942;&#x930;&#x94D;&#x923;</div>
+    <div id="cert-rows"></div>
+    <div class="cert-pass">&#x1F7E2; PASSED</div>
+  </div>
+  <button id="cert-btn" onclick="restartAll()">&#x1F504; Train Again</button>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const ZONES = [{id:0,cx:.25,cy:.52,lbl:'Zone A'},{id:1,cx:.65,cy:.40,lbl:'Zone B'},{id:2,cx:.50,cy:.72,lbl:'Zone C'}];
+const STEPS = [
+  {lbl:'Step 1 of 4 \u2014 P: PULL',
+   txt:'Pull the <strong style="color:#FFD700;">\uD83D\uDD12 safety pin</strong> from the extinguisher handle',
+   hn:'\u0938\u0941\u0930\u0915\u094D\u0937\u093E \u092A\u093F\u0928 \u0916\u0940\u0902\u091A\u0947\u0902 \u2014 \u0905\u0917\u094D\u0928\u093F\u0936\u093E\u092E\u0915 \u0905\u0928\u0932\u0949\u0915 \u0915\u0930\u0947\u0902'},
+  {lbl:'Step 2 of 4 \u2014 A: AIM',
+   txt:'<strong style="color:#FF6B35;">\uD83C\uDFAF Aim the nozzle</strong> at the <strong>BASE of the fire</strong> \u2014 NOT the flames!',
+   hn:'\u0928\u094B\u091C\u0932 \u0906\u0917 \u0915\u0947 \u0906\u0927\u093E\u0930 \u092A\u0930 \u2014 \u0932\u092A\u091F\u094B\u0902 \u092A\u0930 \u0928\u0939\u0940\u0902!'},
+  {lbl:'Step 3 of 4 \u2014 S: SQUEEZE',
+   txt:'<strong style="color:#FF4500;">\uD83E\uDDF2 Squeeze the handle</strong> firmly to release the agent',
+   hn:'\u0939\u0948\u0902\u0921\u0932 \u0926\u092C\u093E\u090F\u0902 \u2014 \u0905\u0917\u094D\u0928\u093F\u0936\u093E\u092E\u0915 \u0924\u0930\u0932 \u091B\u094B\u0921\u093C\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F'},
+  {lbl:'Step 4 of 4 \u2014 S: SWEEP',
+   txt:'<strong style="color:#00FF88;">\u2194\uFE0F Sweep LEFT \u2192 RIGHT</strong> at fire base \u00D73 until fully out!',
+   hn:'\u0906\u0917 \u0915\u0947 \u0906\u0927\u093E\u0930 \u092A\u0930 \u0926\u093E\u090F\u0902-\u092C\u093E\u090F\u0902 \u0918\u0941\u092E\u093E\u090F\u0902 \u2014 \u00D73 \u0906\u0917 \u0928\u093F\u0915\u0932\u0928\u0947 \u0924\u0915'},
+];
+let camStream=null, tapDivs=[], dAnimId=null, tAnimId=null;
+let trainStep=0, fireInt=1, sweepCnt=0, spraying=false, trainTimer=30, trainInterval=null;
+let completedZones=[], currentZoneIdx=0, zoneScores=[];
+const t0=performance.now();
+
+// ─── ELEMENTS ────────────────────────────────────────────────────────────────
+const dc=document.getElementById('dc'), dCtx=dc.getContext('2d');
+const tc=document.getElementById('tc'), tCtx=tc.getContext('2d');
+const sc=document.getElementById('sc'), sCtx=sc.getContext('2d');
+
+// ─── RESIZE ──────────────────────────────────────────────────────────────────
+function resize(){[dc,tc,sc].forEach(c=>{c.width=innerWidth;c.height=innerHeight})}
+window.addEventListener('resize',()=>{resize();posHi()});
+
+// ─── SCREEN SWITCH ───────────────────────────────────────────────────────────
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.add('off'));document.getElementById(id).classList.remove('off')}
+
+// ─── START ───────────────────────────────────────────────────────────────────
+document.getElementById('s0-btn').addEventListener('click',()=>{
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})
+    .then(stream=>{
+      camStream=stream;
+      const v=document.getElementById('cam-video');
+      v.srcObject=stream; resize();
+      v.addEventListener('loadedmetadata',()=>{buildTaps();show('s1');dLoop()});
+      // also give stream to train cam
+      document.getElementById('cam-train').srcObject=stream;
+    }).catch(e=>alert('Camera needed!\n'+e.message));
+});
+
+// ─── DETECT SCREEN ───────────────────────────────────────────────────────────
+function buildTaps(){
+  tapDivs.forEach(d=>d.remove()); tapDivs=[];
+  ZONES.forEach(z=>{
+    if(completedZones.includes(z.id)) return;
+    const d=document.createElement('div');
+    const R=Math.min(innerWidth,innerHeight)*.13;
+    d.style.cssText='position:fixed;border-radius:50%;z-index:50;cursor:pointer;background:transparent;transform:translate(-50%,-50%);width:'+(R*2)+'px;height:'+(R*2)+'px;left:'+(z.cx*innerWidth)+'px;top:'+(z.cy*innerHeight)+'px';
+    d.onclick=()=>startTraining(z.id);
+    d.addEventListener('touchstart',e=>{e.preventDefault();startTraining(z.id)},{passive:false});
+    document.body.appendChild(d); tapDivs.push(d);
+  });
+}
+function dLoop(){
+  dAnimId=requestAnimationFrame(dLoop);
+  const t=(performance.now()-t0)/1000, W=dc.width, H=dc.height;
+  dCtx.clearRect(0,0,W,H);
+  ZONES.forEach(z=>{
+    if(completedZones.includes(z.id)) return;
+    const cx=z.cx*W, cy=z.cy*H, R=Math.min(W,H)*.13;
+    drawZoneCircle(dCtx,cx,cy,R,t,z.lbl);
+  });
+  // Update zone badge
+  const rem=ZONES.filter(z=>!completedZones.includes(z.id)).length;
+  document.getElementById('zbadge').textContent='\uD83D\uDD25 '+rem+' Fire Zone'+(rem!==1?'s':'')+' Active';
+}
+function drawZoneCircle(ctx,cx,cy,R,t,lbl){
+  const p=.85+.15*Math.sin(t*4), pr=R*p;
+  for(let i=3;i>=0;i--){
+    ctx.beginPath();ctx.arc(cx,cy,R+18+i*14+10*Math.sin(t*3+i),0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,'+(50+i*20)+',0,'+((.35-i*.07)*p)+')';ctx.lineWidth=3-i*.5;ctx.stroke();
+  }
+  const gr=ctx.createRadialGradient(cx,cy-pr*.2,pr*.05,cx,cy,pr);
+  gr.addColorStop(0,'rgba(255,120,0,'+(.55*p)+')');gr.addColorStop(.5,'rgba(220,30,0,'+(.40*p)+')');gr.addColorStop(1,'rgba(150,0,0,'+(.10*p)+')');
+  ctx.beginPath();ctx.arc(cx,cy,pr,0,Math.PI*2);ctx.fillStyle=gr;ctx.fill();
+  drawFlamesSmall(ctx,cx,cy,R,t,1);
+  ctx.save();ctx.font='bold '+(R*.21|0)+'px "Exo 2",sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillText('\u26A0 '+lbl,cx+1,cy-R-18+1);
+  ctx.fillStyle='#FFD700';ctx.fillText('\u26A0 '+lbl,cx,cy-R-18);
+  const ta=.6+.4*Math.sin(t*5);
+  ctx.font='bold '+(R*.17|0)+'px "Exo 2",sans-serif';
+  ctx.fillStyle='rgba(255,255,255,'+ta+')';ctx.fillText('TAP TO TRAIN',cx,cy+R+22);
+  ctx.restore();
+}
+
+// ─── START TRAINING ──────────────────────────────────────────────────────────
+function startTraining(zoneId){
+  cancelAnimationFrame(dAnimId);
+  tapDivs.forEach(d=>d.remove()); tapDivs=[];
+  currentZoneIdx=zoneId; trainStep=0; fireInt=1; sweepCnt=0; spraying=false; trainTimer=30;
+  document.getElementById('svg-pin').style.opacity='1'; document.getElementById('svg-pin').style.transform='translateX(0)'; if(document.getElementById('sweep-msg')) document.getElementById('sweep-msg').style.display='none'; if(document.getElementById('drag-pin')) document.getElementById('drag-pin').style.display='none';
+  document.getElementById('vic').style.display='none';
+  document.getElementById('t-banner').classList.remove('safe');
+  document.getElementById('t-bh').textContent='\u0920\u0902\u0921\u0947 \u0930\u0939\u0947\u0902 \u2014 \u0938\u0940\u0916\u0947\u0902 \u0906\u0917 \u0915\u0948\u0938\u0947 \u092C\u0941\u091D\u093E\u090F\u0902';
+  document.getElementById('t-be').textContent='TRAINING MODE \u2014 FOLLOW THE STEPS';
+  document.getElementById('ext-wrap').style.display='block';
+  document.getElementById('back-btn').style.display='flex';
+  document.getElementById('timer-hud').style.display='block';
+  show('s2'); resize(); posHi(); setStep(0); startTimer(); tLoop();
+}
+
+function goBack(){
+  clearInterval(trainInterval); cancelAnimationFrame(tAnimId);
+  hideAllHi(); document.getElementById('ext-wrap').style.display='none';
+  document.getElementById('back-btn').style.display='none';
+  document.getElementById('timer-hud').style.display='none';
+  buildTaps(); show('s1'); dLoop();
+}
+
+// ─── TIMER ───────────────────────────────────────────────────────────────────
+function startTimer(){
+  clearInterval(trainInterval);
+  trainInterval=setInterval(()=>{
+    trainTimer--;
+    const tv=document.getElementById('t-tval');
+    tv.textContent=trainTimer;
+    tv.style.color=trainTimer<=10?'#FF0000':'#FF6B35';
+    if(trainTimer<=0){clearInterval(trainInterval);timeFail();}
+  },1000);
+}
+function timeFail(){
+  hideAllHi(); spraying=false;
+  document.getElementById('t-slbl').textContent='Time Up!';
+  document.getElementById('t-stxt').innerHTML='Too slow! Real fires don\'t wait.<span class="shn">\u0905\u0938\u0932\u0940 \u0906\u0917 \u0907\u0902\u0924\u091C\u093C\u093E\u0930 \u0928\u0939\u0940\u0902 \u0915\u0930\u0924\u0940</span>';
+  setTimeout(()=>goBack(),2500);
+}
+
+// ─── GESTURE STEPS ───────────────────────────────────────────────────────────
+let nozzlePos = {x:0, y:0};
+let sprayBasePos = {x:0, y:0};
+let isHoldingHandle = false;
+let lastSweepX = 0;
+
+function setStep(n){
+  trainStep=n; hideAllHi();
+  if(n<4){
+    document.getElementById('t-slbl').textContent=STEPS[n].lbl;
+    document.getElementById('t-stxt').innerHTML=STEPS[n].txt+'<span class="shn">'+STEPS[n].hn+'</span>';
+  }
+  for(let i=0;i<4;i++) document.getElementById('pd'+i).className='pdot'+(i<n?' done':i===n?' active':'');
+  posHi();
+  
+  if(n===0) setupPinDrag();
+  if(n===1) setupNozzleDrag();
+  if(n===2) setupSqueeze();
+  if(n===3) setupSweep();
+}
+
+function doneStep(n){
+  if(n===0){
+    document.getElementById('svg-pin').style.transform='translateX(-30px)';
+    document.getElementById('svg-pin').style.opacity='0';
+  }
+  if(n===2){
+    // Lock spraying on
+    spraying=true; fireInt=0.65;
+  }
+  setTimeout(()=>setStep(n+1),250);
+}
+
+function doSweep(dir){
+  sweepCnt++; 
+  fireInt=Math.max(0,1-.33*sweepCnt);
+  if(sweepCnt>=3) setTimeout(winZone,600);
+}
+
+function hideAllHi(){
+  ['drag-pin','drag-nozzle','hose-line','squeeze-zone','sweep-msg','h-aim'].forEach(id=>{
+    if(document.getElementById(id)) document.getElementById(id).style.display='none';
+  });
+  // Reset events on window for sweeping
+  window.onpointermove = null;
+  window.onpointerup = null;
+}
+
+function posHi(){
+  const ext=document.getElementById('ext-wrap');
+  if(!ext||ext.style.display==='none') return;
+  const r=ext.getBoundingClientRect();
+  
+  // Pin position
+  const dp=document.getElementById('drag-pin');
+  dp.style.left=(r.left-10)+'px'; dp.style.top=(r.top+(20/210)*r.height)+'px';
+  
+  // Nozzle start position
+  if(trainStep <= 1) {
+    const dn=document.getElementById('drag-nozzle');
+    nozzlePos.x = r.left - 20;
+    nozzlePos.y = r.top + r.height - 40;
+    dn.style.left = nozzlePos.x + 'px';
+    dn.style.top = nozzlePos.y + 'px';
+  }
+  
+  // Squeeze zone position
+  const sz=document.getElementById('squeeze-zone');
+  sz.style.left=(r.left+(20/80)*r.width)+'px'; sz.style.top=(r.top+(0/210)*r.height)+'px';
+  sz.style.width=(40/80*r.width)+'px'; sz.style.height=(40/210*r.height)+'px';
+}
+
+// --- GESTURE LOGIC ---
+
+function setupPinDrag(){
+  const dp = document.getElementById('drag-pin');
+  dp.style.display = 'flex';
+  document.getElementById('svg-pin').style.opacity='0'; // Hide SVG pin, show draggable one
+  
+  let startX = 0;
+  dp.onpointerdown = (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    dp.onpointermove = (ev) => {
+      let dx = ev.clientX - startX;
+      if(dx < 0) {
+        dp.style.transform = `translateX(${dx}px)`;
+        if(dx < -60) {
+          dp.onpointermove = null;
+          dp.onpointerup = null;
+          dp.style.display = 'none';
+          doneStep(0);
+        }
+      }
+    };
+    dp.onpointerup = () => {
+      dp.onpointermove = null;
+      dp.style.transform = `translateX(0px)`;
+    };
+  };
+}
+
+function updateHoseLine() {
+  const ext = document.getElementById('ext-wrap');
+  const r = ext.getBoundingClientRect();
+  const startX = r.left + 28;
+  const startY = r.top + r.height - 20;
+  
+  const endX = nozzlePos.x + 25;
+  const endY = nozzlePos.y + 25;
+  
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+  
+  const hl = document.getElementById('hose-line');
+  hl.style.width = len + 'px';
+  hl.style.height = '14px';
+  hl.style.left = startX + 'px';
+  hl.style.top = startY + 'px';
+  hl.style.transform = `translateY(-50%) rotate(${ang}deg)`;
+}
+
+function setupNozzleDrag(){
+  const dn = document.getElementById('drag-nozzle');
+  const hl = document.getElementById('hose-line');
+  const aim = document.getElementById('h-aim'); // target base
+  
+  dn.style.display = 'flex';
+  hl.style.display = 'block';
+  aim.style.display = 'flex';
+  aim.style.left = (innerWidth/2) + 'px';
+  aim.style.top = (innerHeight*0.76) + 'px';
+  updateHoseLine();
+  
+  let offsetX=0, offsetY=0;
+  dn.onpointerdown = (e) => {
+    e.preventDefault();
+    document.getElementById('nozzle-hint').style.display = 'none';
+    const r = dn.getBoundingClientRect();
+    offsetX = e.clientX - r.left;
+    offsetY = e.clientY - r.top;
+    
+    window.onpointermove = (ev) => {
+      nozzlePos.x = ev.clientX - offsetX;
+      nozzlePos.y = ev.clientY - offsetY;
+      dn.style.left = nozzlePos.x + 'px';
+      dn.style.top = nozzlePos.y + 'px';
+      updateHoseLine();
+      
+      // Check collision with target
+      const targetX = innerWidth/2;
+      const targetY = innerHeight*0.76;
+      const dist = Math.hypot((nozzlePos.x+25)-targetX, (nozzlePos.y+25)-targetY);
+      if(dist < 80) {
+        window.onpointermove = null;
+        window.onpointerup = null;
+        sprayBasePos = {x: targetX, y: targetY};
+        aim.style.display = 'none';
+        doneStep(1);
+      }
+    };
+    window.onpointerup = () => {
+      window.onpointermove = null;
+    };
+  };
+}
+
+function setupSqueeze(){
+  const sz = document.getElementById('squeeze-zone');
+  sz.style.display = 'block';
+  
+  // Keep nozzle visible where it was dropped
+  document.getElementById('drag-nozzle').style.display = 'flex';
+  document.getElementById('hose-line').style.display = 'block';
+  
+  let pressTimeout;
+  sz.onpointerdown = (e) => {
+    e.preventDefault();
+    sz.style.background = 'rgba(255,215,0,0.4)';
+    pressTimeout = setTimeout(() => {
+      sz.onpointerdown = null;
+      sz.onpointerup = null;
+      sz.style.display = 'none';
+      doneStep(2);
+    }, 800); // Hold for 800ms
+  };
+  sz.onpointerup = sz.onpointerleave = () => {
+    clearTimeout(pressTimeout);
+    sz.style.background = 'rgba(255,255,255,0.1)';
+  };
+}
+
+function setupSweep(){
+  // Keep nozzle and spray active
+  document.getElementById('drag-nozzle').style.display = 'flex';
+  document.getElementById('hose-line').style.display = 'block';
+  document.getElementById('sweep-msg').style.display = 'block';
+  
+  let hasMovedLeft = false;
+  let hasMovedRight = false;
+  
+  window.onpointerdown = (e) => {
+    lastSweepX = e.clientX;
+    window.onpointermove = (ev) => {
+      const dx = ev.clientX - lastSweepX;
+      // Animate nozzle following finger slightly to visualize sweep
+      nozzlePos.x += dx * 0.5;
+      document.getElementById('drag-nozzle').style.left = nozzlePos.x + 'px';
+      updateHoseLine();
+      
+      sprayBasePos.x = ev.clientX; // Spray follows finger
+      
+      if(dx < -20) { hasMovedLeft = true; }
+      if(dx > 20) { hasMovedRight = true; }
+      
+      if(hasMovedLeft && hasMovedRight) {
+        hasMovedLeft = false; hasMovedRight = false;
+        doSweep();
+      }
+      
+      lastSweepX = ev.clientX;
+    };
+    window.onpointerup = () => {
+      window.onpointermove = null;
+    };
+  };
+}
+
+// ─── WIN ZONE ────────────────────────────────────────────────────────────────
+function winZone(){
+  clearInterval(trainInterval); hideAllHi(); spraying=false; fireInt=0;
+  const score=Math.max(0,trainTimer)*10+200;
+  zoneScores.push({zone:ZONES.find(z=>z.id===currentZoneIdx).lbl,time:30-trainTimer,score});
+  completedZones.push(currentZoneIdx);
+  document.getElementById('vic-score').textContent='+'+score+' pts';
+  document.getElementById('vic').style.display='flex';
+  document.getElementById('t-banner').classList.add('safe');
+  document.getElementById('t-bh').textContent='\u0906\u0917 \u092C\u0941\u091D \u0917\u0908! \u0936\u093E\u092C\u093E\u0936!';
+  document.getElementById('t-be').textContent='FIRE EXTINGUISHED \u2014 ZONE CLEARED!';
+  const btn=document.getElementById('vic-btn');
+  const remaining=ZONES.filter(z=>!completedZones.includes(z.id));
+  if(remaining.length>0){
+    btn.textContent='\u27A1\uFE0F Next Zone ('+remaining.length+' left)';
+    btn.onclick=()=>{document.getElementById('vic').style.display='none';goBack()};
+  } else {
+    btn.textContent='\uD83C\uDFC6 See Certificate!';
+    btn.onclick=showCert;
+  }
+}
+
+// ─── CERTIFICATE ─────────────────────────────────────────────────────────────
+function showCert(){
+  cancelAnimationFrame(tAnimId);
+  const total=zoneScores.reduce((a,b)=>a+b.score,0);
+  let rows='';
+  zoneScores.forEach(z=>{rows+='<div class="cert-row"><span class="cert-key">\uD83D\uDD25 '+z.zone+'</span><span class="cert-val">'+z.score+' pts &mdash; '+z.time+'s</span></div>';});
+  rows+='<div class="cert-row" style="margin-top:4px;border-top:1px solid rgba(255,255,255,.2);padding-top:8px"><span class="cert-key">Total Score</span><span class="cert-val" style="font-size:18px">'+total+' pts</span></div>';
+  document.getElementById('cert-rows').innerHTML=rows;
+  show('s3');
+}
+function restartAll(){
+  completedZones=[]; zoneScores=[]; cancelAnimationFrame(tAnimId); cancelAnimationFrame(dAnimId);
+  buildTaps(); show('s1'); dLoop();
+}
+
+// ─── TRAIN DRAW LOOP ─────────────────────────────────────────────────────────
+function tLoop(){
+  tAnimId=requestAnimationFrame(tLoop);
+  const t=(performance.now()-t0)/1000, W=tc.width, H=tc.height;
+  tCtx.clearRect(0,0,W,H); sCtx.clearRect(0,0,W,H);
+  drawMineOverlay(tCtx,W,H,t);
+  if(fireInt>0) drawFire(tCtx,W,H,t,fireInt);
+  if(spraying) drawSpray(sCtx,W,H,t);
+}
+
+// ─── MINE SCENE OVERLAY (on top of camera) ───────────────────────────────────
+function drawMineOverlay(ctx,W,H,t){
+  // Smoky vignette on edges
+  const v=ctx.createRadialGradient(W/2,H/2,H*.25,W/2,H/2,H*.85);
+  v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(5,3,0,'+(.4+.06*Math.sin(t*.5))+')');
+  ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
+
+  // Stone wall overlay strips left/right
+  const wallW=W*.14;
+  const wg=ctx.createLinearGradient(0,0,wallW,0);
+  wg.addColorStop(0,'rgba(15,10,5,.95)'); wg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=wg; ctx.fillRect(0,0,wallW,H);
+  const wg2=ctx.createLinearGradient(W-wallW,0,W,0);
+  wg2.addColorStop(0,'rgba(0,0,0,0)'); wg2.addColorStop(1,'rgba(15,10,5,.95)');
+  ctx.fillStyle=wg2; ctx.fillRect(W-wallW,0,wallW,H);
+
+  // Ceiling beams
+  for(let i=0;i<4;i++){
+    const bx=(W/4)*i;
+    ctx.fillStyle='rgba(30,18,5,.85)'; ctx.fillRect(bx,0,W*.07,H*.75);
+    ctx.fillStyle='rgba(20,12,3,.9)'; ctx.fillRect(bx,0,W*.055,H*.04);
+  }
+
+  // Floor darkness
+  const fg=ctx.createLinearGradient(0,H*.8,0,H);
+  fg.addColorStop(0,'rgba(0,0,0,0)'); fg.addColorStop(1,'rgba(5,3,0,.85)');
+  ctx.fillStyle=fg; ctx.fillRect(0,H*.8,W,H*.2);
+
+  // Hazard tape stripe at floor
+  const tapeY=H*.82, tapeH=H*.012;
+  for(let i=0;i<Math.ceil(W/(tapeH*2));i++){
+    ctx.fillStyle=i%2===0?'rgba(255,200,0,.75)':'rgba(0,0,0,.6)';
+    ctx.fillRect(i*tapeH*2,tapeY,tapeH*2,tapeH);
+  }
+
+  // Warning sign overlay (center)
+  const sx=W*.3, sy=H*.12, sw=W*.4, sh=H*.15;
+  ctx.save(); ctx.globalAlpha=.88;
+  ctx.fillStyle='#FFD700'; ctx.fillRect(sx,sy,sw,sh);
+  ctx.fillStyle='#000'; ctx.fillRect(sx+4,sy+4,sw-8,sh-8);
+  ctx.fillStyle='#FFD700'; ctx.textAlign='center';
+  ctx.font='bold '+(sw*.1|0)+'px "Exo 2",sans-serif';
+  ctx.fillText('\u26A0 JHARKHAND MINES',sx+sw/2,sy+sh*.32);
+  ctx.font='bold '+(sw*.075|0)+'px "Exo 2",sans-serif';
+  ctx.fillText('ZONE 4 \u2014 DANGER AREA',sx+sw/2,sy+sh*.54);
+  ctx.font=(sw*.065|0)+'px "Noto Sans Devanagari",sans-serif';
+  ctx.fillStyle='rgba(255,215,0,.8)';
+  ctx.fillText('\u0916\u0924\u0930\u093E: \u0905\u0917\u094D\u0928\u093F \u0938\u0902\u092D\u093E\u0935\u0928\u093E',sx+sw/2,sy+sh*.75);
+  // stripe border
+  for(let i=0;i<6;i++){ctx.fillStyle=i%2?'#FFD700':'#000';ctx.fillRect(sx+i*(sw/6),sy,sw/6,4);ctx.fillRect(sx+i*(sw/6),sy+sh-4,sw/6,4);}
+  ctx.restore();
+
+  // Flickering lights
+  for(let i=0;i<3;i++){
+    const lx=(W/4)*(i+1), flicker=.05+.04*Math.sin(t*3+i*2.1);
+    const lg=ctx.createRadialGradient(lx,0,0,lx,0,H*.4);
+    lg.addColorStop(0,'rgba(255,80,0,'+flicker+')'); lg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=lg; ctx.fillRect(0,0,W,H*.5);
+    ctx.fillStyle='rgba(255,120,40,'+(.4+.3*Math.sin(t*4+i))+')';
+    ctx.beginPath(); ctx.arc(lx,8,5,0,Math.PI*2); ctx.fill();
+  }
+
+  // Ground glow from fire
+  if(fireInt>0){
+    const gg=ctx.createRadialGradient(W/2,H*.85,0,W/2,H*.85,W*.55);
+    gg.addColorStop(0,'rgba(255,80,0,'+(.3*fireInt)+')');
+    gg.addColorStop(.5,'rgba(200,30,0,'+(.12*fireInt)+')');
+    gg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=gg; ctx.fillRect(0,0,W,H);
+  }
+}
+
+// ─── FIRE ─────────────────────────────────────────────────────────────────────
+function drawFire(ctx,W,H,t,ints){
+  const fCX=W*.5, fBase=H*.83, fW=W*.5*ints, fH=H*.55*ints;
+  // Base hot glow
+  const bg=ctx.createRadialGradient(fCX,fBase,0,fCX,fBase,fW*.8);
+  bg.addColorStop(0,'rgba(255,220,0,'+(.75*ints)+')');
+  bg.addColorStop(.3,'rgba(255,80,0,'+(.5*ints)+')');
+  bg.addColorStop(.7,'rgba(180,20,0,'+(.25*ints)+')');
+  bg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=bg; ctx.fillRect(0,fBase-fH*.35,W,fH*.5);
+  // Flame tongues
+  const cnt=Math.round(12*ints);
+  for(let i=0;i<cnt;i++){
+    const ph=i/cnt, fx=fCX+(ph-.5)*fW*1.1+Math.sin(t*2.5+i)*fW*.07;
+    flame(ctx,fx,fBase,fW*.13*(0.6+.4*Math.sin(t*3.5+i)),fH*(.4+.6*Math.sin(t*5+i*.7)),t,i,ints);
+  }
+  flame(ctx,fCX,fBase,fW*.22,fH*1.1,t,99,ints);
+  // Sparks
+  for(let i=0;i<Math.round(22*ints);i++){
+    const sx=fCX+Math.sin(t*3+i*2.7)*fW*.55;
+    const sy=fBase-((t*55+i*38)%(fH*1.6));
+    ctx.beginPath(); ctx.arc(sx,sy,1.5+Math.sin(t*8+i),0,Math.PI*2);
+    ctx.fillStyle='rgba(255,'+(140+Math.sin(t*6+i)*100|0)+',0,'+(.7+.3*Math.sin(t*5+i))+')'; ctx.fill();
+  }
+  // Smoke
+  for(let i=0;i<7;i++){
+    const off=(t*.2+i*.15)%1;
+    const sx2=fCX+(i-3)*fW*.17+Math.sin(t*.7+i)*18, sy2=fBase-off*fH*2.5;
+    ctx.beginPath(); ctx.arc(sx2,sy2,fW*.07+off*fW*.2,0,Math.PI*2);
+    ctx.fillStyle='rgba(20,14,6,'+(1-off)*.35*ints+')'; ctx.fill();
+  }
+}
+function flame(ctx,fx,fy,fw,fh,t,i,ints){
+  const wb=fw*(.6+.4*Math.sin(t*4+i));
+  const gr=ctx.createLinearGradient(fx,fy,fx,fy-fh);
+  gr.addColorStop(0,'rgba(255,245,60,'+(.95*ints)+')');
+  gr.addColorStop(.25,'rgba(255,140,0,'+(.9*ints)+')');
+  gr.addColorStop(.55,'rgba(220,40,0,'+(.7*ints)+')');
+  gr.addColorStop(.82,'rgba(100,0,0,'+(.35*ints)+')');
+  gr.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.moveTo(fx-wb,fy);
+  ctx.quadraticCurveTo(fx+wb*.7*Math.sin(t*3.2+i),fy-fh*.5,fx+wb*.25*Math.sin(t*2.1+i),fy-fh);
+  ctx.quadraticCurveTo(fx-wb*.7*Math.sin(t*4+i),fy-fh*.5,fx+wb,fy);
+  ctx.closePath(); ctx.fillStyle=gr; ctx.fill();
+}
+function drawFlamesSmall(ctx,cx,cy,R,t,ints){
+  for(let i=0;i<9;i++){
+    const a=(i/9)*Math.PI*2+t*.3, wb=.7+.3*Math.sin(t*6+i*1.3);
+    const bx=cx+Math.cos(a)*R*.35*wb, by=cy+Math.sin(a)*R*.25;
+    const fh=R*(.55+.25*Math.sin(t*7+i)), fw=R*.18;
+    const fg=ctx.createLinearGradient(bx,by,bx,by-fh);
+    fg.addColorStop(0,'rgba(255,220,0,'+(.95*ints)+')'); fg.addColorStop(.4,'rgba(255,80,0,'+(.85*ints)+')'); fg.addColorStop(1,'rgba(80,0,0,0)');
+    ctx.beginPath(); ctx.moveTo(bx-fw*.5,by);
+    ctx.quadraticCurveTo(bx+fw*.5*Math.sin(t*4+i),by-fh*.5,bx,by-fh);
+    ctx.quadraticCurveTo(bx-fw*.5*Math.sin(t*3+i),by-fh*.5,bx+fw*.5,by);
+    ctx.closePath(); ctx.fillStyle=fg; ctx.fill();
+  }
+}
+
+// ─── SPRAY ───────────────────────────────────────────────────────────────────
+function drawSpray(ctx,W,H,t){
+  const ext=document.getElementById('ext-wrap');
+  if(!ext||ext.style.display==='none') return;
+  const r=ext.getBoundingClientRect();
+  // Dynamic sx based on nozzle pos
+  const sx = (document.getElementById('drag-nozzle') && document.getElementById('drag-nozzle').style.display !== 'none') ? nozzlePos.x + 25 : r.left+r.width*.32;
+  const sy = (document.getElementById('drag-nozzle') && document.getElementById('drag-nozzle').style.display !== 'none') ? nozzlePos.y + 25 : r.top+r.height*.92;
+  const tx=sprayBasePos.x || W*.5, ty=sprayBasePos.y || H*.8;
+  const dx=tx-sx, dy=ty-sy, dl=Math.sqrt(dx*dx+dy*dy);
+  const ax=dx/dl, ay=dy/dl;
+  for(let i=0;i<38;i++){
+    const f=i/38, sp=f*35*(.8+.2*Math.sin(t*8+i));
+    const px=sx+ax*dl*f+Math.sin(t*6+i*2)*sp, py=sy+ay*dl*f+Math.cos(t*5+i*1.7)*sp;
+    ctx.beginPath(); ctx.arc(px,py,3+f*9,0,Math.PI*2);
+    ctx.fillStyle='rgba(200,235,255,'+((1-f)*(.5+.3*Math.sin(t*5+i)))+')'; ctx.fill();
+  }
+  for(let i=0;i<14;i++){
+    const a=(i/14)*Math.PI*2+t*2, rr=22+18*Math.sin(t*4+i);
+    ctx.beginPath(); ctx.arc(tx+Math.cos(a)*rr,ty+Math.sin(a)*rr,5+4*Math.sin(t*6+i),0,Math.PI*2);
+    ctx.fillStyle='rgba(210,235,255,'+(.3+.2*Math.sin(t*7+i))+')'; ctx.fill();
+  }
+}
+
+// ─── RIPPLE ──────────────────────────────────────────────────────────────────
+function ripple(e){
+  const x=e.clientX||(e.touches&&e.touches[0].clientX)||innerWidth/2;
+  const y=e.clientY||(e.touches&&e.touches[0].clientY)||innerHeight/2;
+  const d=document.createElement('div');
+  d.className='rip'; d.style.left=x+'px'; d.style.top=y+'px';
+  document.body.appendChild(d); setTimeout(()=>d.remove(),550);
+}
+
+// init
+resize();
+</script>
+</body>
+</html>
